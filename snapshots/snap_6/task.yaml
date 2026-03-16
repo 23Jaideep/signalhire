@@ -1,0 +1,5 @@
+name: log_parser_v1
+entry_tests: tests/test_core.py
+mutation_tests: tests/test_mutation.py
+language: python
+timeout: 5

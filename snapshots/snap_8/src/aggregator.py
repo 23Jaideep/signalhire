@@ -19,3 +19,4 @@ class LogAggregator:
 
     def unique_users(self) -> int:
         return len({log["user_id"] for log in self.logs})
+

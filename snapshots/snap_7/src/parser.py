@@ -6,6 +6,9 @@ def parse_log_line(line: str) -> dict:
 
     if len(parts) <4:
         raise ValueError("Invalid log format")
+
+    if len(parts) <4:
+        raise ValueError("Invalid log format")
     
     timestamp = parts[0].strip()
     user_id = parts[1].strip()

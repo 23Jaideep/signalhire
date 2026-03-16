@@ -4,7 +4,7 @@ def parse_log_line(line: str) -> dict:
     
     parts = line.split("|")
 
-    if len(parts) <4:
+    if len(parts) <=4:
         raise ValueError("Invalid log format")
     
     timestamp = parts[0].strip()
