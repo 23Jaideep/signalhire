@@ -85,3 +85,45 @@ def compute_scope_violations(events):
         "count": len(violations),
         "files": list(set(violations))
     }
+
+def compute_iteration_efficiency(events, phase="core"):
+    test_runs = [
+        e for e in events
+        if e["event_type"] == "test_run" and e["phase"] == phase
+    ]
+
+    if len(test_runs) < 2:
+        return None
+
+    improvements = 0
+
+    for i in range(1, len(test_runs)):
+        if test_runs[i]["tests_passed"] > test_runs[i-1]["tests_passed"]:
+            improvements += 1
+
+    return improvements / (len(test_runs) - 1)
+
+def compute_adaptability(summary):
+    core_time = summary.get("time_to_core_pass")
+    mutation_time = summary.get("time_to_mutation_pass")
+
+    if not core_time or not mutation_time:
+        return None
+
+    return core_time / mutation_time
+
+def compute_recovery_score(recoveries):
+    if not recoveries:
+        return None
+
+    avg_recovery = sum(recoveries) / len(recoveries)
+
+    return 1 / (1 + avg_recovery)
+
+def compute_composite(events, summary):
+    return {
+        "iteration_core": compute_iteration_efficiency(events, "core"),
+        "iteration_mutation": compute_iteration_efficiency(events, "mutation"),
+        "adaptability": compute_adaptability(summary),
+        "recovery": compute_recovery_score(summary.get("recovery")),
+    }

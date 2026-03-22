@@ -3,7 +3,11 @@ from core.telementry.analyzer import (
     compute_time_between_runs,
     compute_recovery,
     compute_progress,
-    compute_scope_violations
+    compute_scope_violations,
+    compute_iteration_efficiency,
+    compute_adaptability,
+    compute_recovery_score,
+    compute_composite
 )
 
 
@@ -41,9 +45,8 @@ class SessionTracker:
             self.mutation_pass_time = time.time()
 
     
-
     def summary(self):
-        return {
+        base = {
             "core_runs": self.core_runs,
             "mutation_runs": self.mutation_runs,
             "regressions": self.regressions,
@@ -54,11 +57,16 @@ class SessionTracker:
             "time_to_mutation_pass": (
                 self.mutation_pass_time - self.start_time
                 if self.mutation_pass_time else None
-            ),
+           ),
             "time_between_runs": compute_time_between_runs(self.events),
             "recovery": compute_recovery(self.events),
             "progress": compute_progress(self.events),
-            "scope": compute_scope_violations(self.events)
+            "scope": compute_scope_violations(self.events),
         }
-    
-    
+
+        evaluation = compute_composite(self.events, base)
+
+        return {
+            **base,
+            "evaluation": evaluation
+        }
