@@ -4,7 +4,7 @@ def parse_log_line(line: str) -> dict:
     
     parts = line.split("|")
 
-    if len(parts) <4:
+    if len(parts) !=4:
         raise ValueError("Invalid log format")
     
     timestamp = parts[0].strip()
@@ -31,4 +31,3 @@ def parse_log_line(line: str) -> dict:
         "status_code": status_code,
         "response_time": response_time    
     } 
-

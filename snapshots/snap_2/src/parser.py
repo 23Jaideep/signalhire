@@ -31,4 +31,3 @@ def parse_log_line(line: str) -> dict:
         "status_code": status_code,
         "response_time": response_time    
     } 
-
