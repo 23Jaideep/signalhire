@@ -10,6 +10,8 @@ import time
 from core.storage.db import save_session
 from core.storage.db import save_events
 import time
+from pathlib import Path
+import yaml
 
 app = FastAPI()
 
@@ -128,3 +130,32 @@ def end_session(data: dict):
     conn.close()
 
     return {"status": "ended"}
+
+@app.get("/task/{task_name}")
+def load_task(task_name: str):
+
+    task_dir = Path(f"tasks/{task_name}")
+
+    print("TASK DIR:", task_dir)
+
+    src_dir = task_dir / "src"
+
+    print("SRC DIR:", src_dir)
+
+    print("SRC EXISTS:", src_dir.exists())
+
+    files = {}
+
+    for file in src_dir.glob("*.py"):
+
+        print("FOUND FILE:", file)
+
+        with open(file, "r") as f:
+            files[file.name] = f.read()
+
+    print("FILES:", files.keys())
+
+    return {
+        "task_name": task_name,
+        "files": files
+    }
