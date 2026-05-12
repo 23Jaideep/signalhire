@@ -12,6 +12,9 @@ from core.storage.db import save_events
 import time
 from pathlib import Path
 import yaml
+from fastapi import UploadFile, File
+import zipfile
+import shutil
 
 app = FastAPI()
 
@@ -131,31 +134,121 @@ def end_session(data: dict):
 
     return {"status": "ended"}
 
-@app.get("/task/{task_name}")
-def load_task(task_name: str):
+@app.get("/uploaded_task/{task_id}")
+def load_uploaded_task(task_id: str):
+    task_dir = Path(f"uploaded_tasks/{task_id}")
+    task_yaml_path = task_dir / "task.yaml"
 
-    task_dir = Path(f"tasks/{task_name}")
+    with open(task_yaml_path, "r") as f:
 
-    print("TASK DIR:", task_dir)
+        task_config = yaml.safe_load(f) or {}
 
-    src_dir = task_dir / "src"
-
-    print("SRC DIR:", src_dir)
-
-    print("SRC EXISTS:", src_dir.exists())
-
+    visible_paths = task_config.get("visible", [])
+    print("TASK CONFIG:", task_config)
+    print("VISIBLE PATHS:", visible_paths)
     files = {}
 
-    for file in src_dir.glob("*.py"):
+    for file in task_dir.rglob("*"):
 
-        print("FOUND FILE:", file)
+         # skip folders
+        if not file.is_file():
+            continue
 
-        with open(file, "r") as f:
-            files[file.name] = f.read()
+    # skip pycache
+        if "__pycache__" in str(file):
+            continue
+
+    # skip binary / irrelevant files
+        allowed_extensions = {
+        ".py",
+        ".txt",
+       ".yaml",
+       ".yml",
+       ".json",
+       ".md"
+       }
+
+        if file.suffix.lower() not in allowed_extensions:
+            continue
+
+        relative_path = file.relative_to(task_dir)
+        relative_str = str(relative_path).replace("\\", "/")
+        print("CHECKING FILE:", relative_str)
+
+        allowed = False
+
+        for visible in visible_paths:
+            visible = visible.replace("\\", "/").rstrip("/")
+
+            print("VISIBLE:", visible)
+            if relative_str.startswith(visible):
+                allowed = True
+                break
+        print("ALLOWED:", allowed)
+        if not allowed:
+            continue
+
+        try:
+
+            with open(file, "r", encoding="utf-8") as f:
+
+                files[str(relative_path)] = f.read()
+
+        except Exception as e:
+
+            print("FAILED TO READ:", file, e)
 
     print("FILES:", files.keys())
 
     return {
-        "task_name": task_name,
+        "task_id": task_id,
         "files": files
+    }
+
+@app.post("/upload_task")
+async def upload_task(file: UploadFile = File(...)):
+
+    # ---- create unique task id ----
+    task_id = str(uuid.uuid4())
+
+    # ---- temp zip path ----
+    zip_path = f"uploaded_tasks/{task_id}.zip"
+
+    # ---- final extraction dir ----
+    extract_dir = Path(f"uploaded_tasks/{task_id}")
+
+    # ---- save uploaded zip ----
+    with open(zip_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # ---- extract zip ----
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(extract_dir)
+
+    # ---- validation ----
+    required = ["src", "tests", "task.yaml"]
+
+    missing = []
+
+    for item in required:
+
+        if not (extract_dir / item).exists():
+            missing.append(item)
+
+    # ---- invalid task ----
+    if missing:
+
+        shutil.rmtree(extract_dir)
+
+        os.remove(zip_path)
+
+        return {
+            "status": "failed",
+            "missing": missing
+        }
+
+    # ---- success ----
+    return {
+        "status": "uploaded",
+        "task_id": task_id
     }

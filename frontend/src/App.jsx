@@ -9,6 +9,7 @@ function App() {
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
+  const [taskId, setTaskId] = useState(null);
 
   // --- START SESSION ---
   const startSession = async () => {
@@ -36,37 +37,75 @@ function App() {
     }
   };
 
-  // --- AUTO START SESSION ---
+  
 
-  const loadTask = async () => {
-
-  try {
-
-    const res = await fetch(
-      "http://127.0.0.1:8000/task/log_parser_v1"
-    );
-
-    const data = await res.json();
-
-    setFiles(data.files);
-
-    const firstFile = Object.keys(data.files)[0];
-
-    setActiveFile(firstFile);
-
-    console.log("TASK LOADED:", data);
-
-  } catch (err) {
-
-    console.error("Task loading failed", err);
-
-  }
-};
 
 useEffect(() => {
   startSession();
-  loadTask();
 }, []);
+
+  const uploadTask = async (event) => {
+
+  const file = event.target.files[0];
+
+  if (!file) return;
+
+  const formData = new FormData();
+
+  formData.append("file", file);
+
+  try {
+
+    // ---- upload zip ----
+    const uploadRes = await fetch(
+      "http://127.0.0.1:8000/upload_task",
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    const uploadData = await uploadRes.json();
+
+    console.log("UPLOAD RESPONSE:", uploadData);
+
+    if (uploadData.status !== "uploaded") {
+
+      setOutput("Task upload failed");
+
+      return;
+    }
+
+    const uploadedTaskId = uploadData.task_id;
+
+    setTaskId(uploadedTaskId);
+
+    // ---- fetch uploaded task ----
+    console.log("FETCHING TASK:", uploadedTaskId);
+    const taskRes = await fetch(
+      `http://127.0.0.1:8000/uploaded_task/${uploadedTaskId}`
+    );
+
+    const taskData = await taskRes.json();
+
+    console.log("TASK DATA:", taskData);
+
+    setFiles(taskData.files);
+
+    const firstFile = Object.keys(taskData.files)[0];
+
+    setActiveFile(firstFile);
+
+    setOutput("Task loaded successfully");
+
+  } catch (err) {
+
+  console.error("UPLOAD ERROR:", err);
+
+  setOutput(String(err));
+
+}
+};
 
   // --- RUN TESTS ---
   const runTests = async () => {
@@ -107,7 +146,15 @@ useEffect(() => {
 
   return (
     <div style={{ height: "100vh" }}>
+      <div style={{ padding: 10 }}>
 
+  <input
+    type="file"
+    accept=".zip"
+    onChange={uploadTask}
+  />
+
+</div>
       <div
   style={{
     display: "flex",
@@ -167,6 +214,14 @@ onChange={(value) => {
             {sessionId || "Starting..."}
           </div>
         </div>
+
+        <div style={{ marginBottom: 10 }}>
+  <b>Task ID:</b>
+
+  <div style={{ fontSize: 12 }}>
+    {taskId || "No task uploaded"}
+  </div>
+</div>
 
         <button onClick={runTests} disabled={loading}>
           {loading ? "Running..." : "Run Tests"}
