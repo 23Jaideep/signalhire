@@ -125,6 +125,7 @@ useEffect(() => {
         body: JSON.stringify({
   files,
   session_id: sessionId,
+  task_id: taskId,
 }),
       });
 
