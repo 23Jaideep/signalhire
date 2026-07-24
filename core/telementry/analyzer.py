@@ -109,7 +109,7 @@ def compute_adaptability(summary):
     core_time = summary.get("time_to_core_pass")
     mutation_time = summary.get("time_to_mutation_pass")
 
-    if not core_time or not mutation_time:
+    if core_time is None or mutation_time is None:
         return None
 
     return core_time / mutation_time

@@ -337,23 +337,70 @@ onChange={(value) => {
 
     <h3>Interview Analytics</h3>
 
-    <p>Core Runs: {analytics.summary.core_runs}</p>
+    <p><strong>Core Runs:</strong> {analytics.summary.core_runs}</p>
 
-    <p>Mutation Runs: {analytics.summary.mutation_runs}</p>
+    <p><strong>Mutation Runs:</strong> {analytics.summary.mutation_runs}</p>
 
     <p>
-      Core Passed:
+      <strong>Core Passed:</strong>
       {analytics.summary.core_passed ? " ✅" : " ❌"}
     </p>
 
     <p>
-      Mutation Passed:
+      <strong>Mutation Passed:</strong>
       {analytics.summary.mutation_passed ? " ✅" : " ❌"}
     </p>
 
     <p>
-  Avg edit time: {analytics.summary.time_between_runs?.avg?.toFixed(2) ?? "-"} s
-</p>
+      <strong>Average Time Between Runs:</strong>{" "}
+      {analytics.summary.time_between_runs
+        ? `${analytics.summary.time_between_runs.avg.toFixed(2)} s`
+        : "-"}
+    </p>
+
+    <hr style={{ margin: "20px 0" }} />
+
+    <h3>Behavioral Scores</h3>
+
+    <p>
+      <strong>Iteration Efficiency:</strong>{" "}
+      {analytics.summary.scores?.iteration != null
+        ? `${(analytics.summary.scores.iteration * 100).toFixed(0)}%`
+        : "-"}
+    </p>
+
+    <p>
+      <strong>Adaptability Score:</strong>{" "}
+      {analytics.summary.scores?.adaptability != null
+        ? analytics.summary.scores.adaptability.toFixed(2)
+        : "-"}
+    </p>
+
+    <p>
+      <strong>Recovery Score:</strong>{" "}
+      {analytics.summary.scores?.recovery != null
+        ? analytics.summary.scores.recovery.toFixed(2)
+        : "-"}
+    </p>
+
+    <hr style={{ margin: "20px 0" }} />
+
+    <h3>Behavioral Interpretation</h3>
+
+    <p>
+      <strong>Iteration:</strong>{" "}
+      {analytics.summary.interpretation?.iteration ?? "-"}
+    </p>
+
+    <p>
+      <strong>Adaptability:</strong>{" "}
+      {analytics.summary.interpretation?.adaptability ?? "-"}
+    </p>
+
+    <p>
+      <strong>Recovery:</strong>{" "}
+      {analytics.summary.interpretation?.recovery ?? "-"}
+    </p>
 
   </div>
 )}
