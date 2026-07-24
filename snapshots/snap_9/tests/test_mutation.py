@@ -1,5 +1,5 @@
-from tasks.log_parser_v1.src.parser import parse_log_line
-from tasks.log_parser_v1.src.aggregator import LogAggregator
+from src.parser import parse_log_line
+from src.aggregator import LogAggregator
 
 
 def test_parser_supports_optional_region():

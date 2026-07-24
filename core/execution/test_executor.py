@@ -8,7 +8,12 @@ from core.telementry.diff_analyzer import compute_diff
 import os
 import yaml
 import uuid
-from core.storage.db import init_db, save_candidate, save_session, save_events
+from core.storage.db import (
+    init_db,
+    save_candidate,
+    save_events,
+    update_session,
+)
 
 def run_tests(file):
     result = subprocess.run(
@@ -17,6 +22,15 @@ def run_tests(file):
         text=True
     )
     output = result.stdout
+
+    lines = output.splitlines()
+
+    lines = [
+        line for line in lines
+        if not re.match(r"^\.+\s*\[\d+%\]\s*$", line)
+    ]
+
+    output = "\n".join(lines)
     print(output)   # <-- add this line
     print(result.stderr)
     return result.returncode, output
@@ -33,11 +47,24 @@ def load_task_config(task_path):
         with open(f"{task_path}/task.yaml", "r") as f:
             return yaml.safe_load(f)
 
-def run_session(task_path: str, candidate_id: str):
-    tracker = SessionTracker()
+def run_session(
+    session_id,
+    task_id,
+    candidate_id,
+    files,
+    phase
+):
     init_db()  
-    session_id = str(uuid.uuid4())
-    candidate_id
+    tracker = SessionTracker()
+    task_path = f"uploaded_tasks/{task_id}"
+    import sys
+
+    if task_path not in sys.path:
+        sys.path.insert(0, task_path)
+    for relative_path, content in files.items():
+        full_path = os.path.join(task_path, relative_path)
+        with open(full_path, "w", encoding="utf-8") as f:
+            f.write(content)
     config = load_task_config(task_path)
 
     core_test = config["entry_tests"]
@@ -51,9 +78,7 @@ def run_session(task_path: str, candidate_id: str):
     start = time.time()
 
     # -------- Phase 1: Core --------
-    while True:
-        input("Press Enter to run core tests...")
-
+    if phase == "core":
         code, output = run_tests(f"{task_path}/{core_test}")
 
         snap_id += 1
@@ -90,18 +115,24 @@ def run_session(task_path: str, candidate_id: str):
         "diff": diff
         })
 
-        if passed:
-            print("Core tests PASSED\n")
-            break
-        else:
-            print("Core tests FAILED\n")
+        end = time.time()
+
+        summary = tracker.summary()
+        update_session(session_id, summary)
+        print("SUMMARY SAVED:", summary)
+        save_candidate(candidate_id)
+        print("EVENTS:", tracker.events)
+        save_events(tracker.events)
+
+        return {
+    "phase": "core",
+    "passed": passed,
+    "output": output,
+    "summary": summary
+}
 
     # -------- Phase 2: Mutation --------
-    print("Running mutation tests...")
-
-    while True:
-        input("Press Enter to run mutation tests...")
-
+    if phase == "mutation":
         mutation_code, mutation_output = run_tests(f"{task_path}/{mutation_test}")
 
         snap_id += 1
@@ -110,57 +141,76 @@ def run_session(task_path: str, candidate_id: str):
         create_snapshot(task_path, new_snapshot)
 
         tracker.log_event({
-        "session_id": session_id,
-       "timestamp": time.time(),
-       "event_type": "edit_snapshot",
-       "snapshot_id": snap_id
-     })
+            "session_id": session_id,
+            "timestamp": time.time(),
+            "event_type": "edit_snapshot",
+            "snapshot_id": snap_id
+        })
 
         diff = compute_diff(prev_snapshot, new_snapshot)
-
-        print("Telemetry diff:", diff)
 
         prev_snapshot = new_snapshot
 
         passed_mutation_tests = extract_passed_tests(mutation_output)
+
         tracker.record_progress(passed_mutation_tests)
+
         passed = (mutation_code == 0)
+
         tracker.record_mutation_run(passed)
 
         tracker.log_event({
-        "session_id": session_id,
-        "timestamp": time.time(),
-        "event_type": "test_run",
-        "phase": "mutation",
-        "passed": passed,
-        "tests_passed": passed_mutation_tests,
-         "diff": diff
+            "session_id": session_id,
+            "timestamp": time.time(),
+            "event_type": "test_run",
+            "phase": "mutation",
+            "passed": passed,
+            "tests_passed": passed_mutation_tests,
+            "diff": diff
         })
+        end = time.time()
+        summary = tracker.summary()
+        update_session(session_id, summary)
+        print("SUMMARY SAVED:", summary)
+        save_candidate(candidate_id)
+        print("EVENTS:", tracker.events)
+        save_events(tracker.events)
 
-        if passed:
-            print("Mutation tests PASSED\n")
-            break
-        else:
-            print("Mutation tests FAILED\n")
+        return {
+    "phase": "mutation",
+    "passed": passed,
+    "output": mutation_output,
+    "summary": summary
+}
 
-    end = time.time()
+#     end = time.time()
 
-    print("\nTotal session time:", end - start)
-    summary = tracker.summary()
+#     print("\nTotal session time:", end - start)
+#     summary = tracker.summary()
 
-    session = {
-        "session_id": session_id,
-        "candidate_id": candidate_id,
-        "task_name": task_path,
-        "start_time": start,
-        "end_time": end,
-        "summary": summary
-    }
+#     session = {
+#         "session_id": session_id,
+#         "candidate_id": candidate_id,
+#         "task_name": task_path,
+#         "start_time": start,
+#         "end_time": end,
+#         "summary": summary
+#     }
 
-    save_candidate(candidate_id)
-    save_session(session)
-    save_events(tracker.events)
+#     save_candidate(candidate_id)
+#     save_session(session)
+#     save_events(tracker.events)
 
-    print(summary)
+#     print(summary)
+#     final_passed = (
+#     tracker.core_pass_time is not None and
+#     tracker.mutation_pass_time is not None
+# )
+#     return {
+#     "phase": "mutation",
+#     "passed": passed,
+#     "output": mutation_output,
+#     "summary": summary
+# }
 
 

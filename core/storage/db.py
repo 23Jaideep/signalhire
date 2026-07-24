@@ -55,7 +55,26 @@ def save_candidate(candidate_id):
 
     conn.commit()
     conn.close()
+    
+def update_session(session_id, summary):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
 
+    cur.execute(
+        """
+        UPDATE sessions
+        SET end_time = ?, summary = ?
+        WHERE session_id = ?
+        """,
+        (
+            time.time(),
+            json.dumps(summary),
+            session_id
+        )
+    )
+
+    conn.commit()
+    conn.close()
 
 def save_session(session):
     conn = sqlite3.connect(DB_PATH)

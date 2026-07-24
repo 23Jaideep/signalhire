@@ -5,9 +5,11 @@ function App() {
   // --- STATE ---
   const [files, setFiles] = useState({});
   const [activeFile, setActiveFile] = useState("");
-
   const [output, setOutput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [coreResult, setCoreResult] = useState(null);
+  const [mutationResult, setMutationResult] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  const [loadingPhase, setLoadingPhase] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [taskId, setTaskId] = useState(null);
 
@@ -26,8 +28,10 @@ function App() {
       });
 
       const data = await res.json();
+      console.log("NEW SESSION:", data.session_id);
 
       setSessionId(data.session_id);
+      console.log("STATE WILL BE:", data.session_id);
 
       console.log("SESSION STARTED:", data.session_id);
 
@@ -108,14 +112,14 @@ useEffect(() => {
 };
 
   // --- RUN TESTS ---
-  const runTests = async () => {
+  const runTests = async (phase) => {
     if (!sessionId) {
       setOutput("Session not started yet");
       return;
     }
 
-    setLoading(true);
-
+    setLoadingPhase(phase);
+    console.log("Sending session:", sessionId);
     try {
       const res = await fetch("http://127.0.0.1:8000/run_tests", {
         method: "POST",
@@ -126,15 +130,16 @@ useEffect(() => {
   files,
   session_id: sessionId,
   task_id: taskId,
+  phase,
 }),
       });
 
       const data = await res.json();
 
-      if (data.passed) {
-        setOutput("PASSED");
+      if (phase === "core") {
+          setCoreResult(data);
       } else {
-        setOutput("FAILED");
+          setMutationResult(data);
       }
 
     } catch (err) {
@@ -142,7 +147,21 @@ useEffect(() => {
       setOutput("Error connecting to backend");
     }
 
-    setLoading(false);
+    setLoadingPhase(null);
+  };
+
+  const loadAnalytics = async () => {
+    if (!sessionId) return;
+
+    const res = await fetch(
+      `http://127.0.0.1:8000/session/${sessionId}`
+    );
+
+    const data = await res.json();
+
+    console.log(data);
+
+    setAnalytics(data);
   };
 
   return (
@@ -186,7 +205,12 @@ useEffect(() => {
 </div>
       <div style={{ display: "flex", height: "calc(100% - 50px)" }}>
       {/* LEFT: EDITOR */}
-      <div style={{ flex: 2 }}>
+      <div
+        style={{
+          flex: 2,
+          overflow: "hidden",
+        }}
+      >
         <Editor
           height="100%"
           defaultLanguage="python"
@@ -205,7 +229,16 @@ onChange={(value) => {
       </div>
 
       {/* RIGHT: PANEL */}
-      <div style={{ flex: 1, padding: 20, borderLeft: "1px solid gray" }}>
+      <div
+        style={{
+          flex: 1,
+          padding: 20,
+          borderLeft: "1px solid gray",
+          overflowY: "auto",
+          overflowX: "hidden",
+          minWidth: 350,
+        }}
+      >
         
         <h3>Test Runner</h3>
 
@@ -224,14 +257,108 @@ onChange={(value) => {
   </div>
 </div>
 
-        <button onClick={runTests} disabled={loading}>
-          {loading ? "Running..." : "Run Tests"}
-        </button>
+        <button
+    onClick={() => runTests("core")}
+    disabled={loadingPhase === "core"}
+>
+    {loadingPhase === "core"
+        ? "Running..."
+        : "Run Core Tests"}
+</button>
 
-        <div style={{ marginTop: 20 }}>
-          <b>Output:</b>
-          <pre>{output}</pre>
-        </div>
+<button
+    onClick={() => runTests("mutation")}
+    disabled={loadingPhase === "mutation"}
+>
+    {loadingPhase === "mutation"
+        ? "Running..."
+        : "Run Mutation Tests"}
+</button>
+<div style={{ marginTop: 20 }}>
+
+    <h4>Core Tests</h4>
+
+    {coreResult ? (
+        <>
+            <p>
+                Status: {coreResult.passed ? "✅ PASSED" : "❌ FAILED"}
+            </p>
+
+            <pre
+              style={{
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                overflowX: "auto",
+                maxWidth: "100%",
+              }}
+            >
+              {coreResult.output}
+            </pre>
+        </>
+    ) : (
+        <p>Not run yet</p>
+    )}
+
+</div>
+
+<div style={{ marginTop: 20 }}>
+
+    <h4>Mutation Tests</h4>
+
+    {mutationResult ? (
+        <>
+            <p>
+                Status: {mutationResult.passed ? "✅ PASSED" : "❌ FAILED"}
+            </p>
+
+            <pre
+              style={{
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                overflowX: "auto",
+                maxWidth: "100%",
+              }}
+            >
+              {mutationResult.output}
+            </pre>
+        </>
+    ) : (
+        <p>Not run yet</p>
+    )}
+
+</div>
+<div style={{ marginTop: 30 }}>
+
+  <button onClick={loadAnalytics}>
+    Load Session Analytics
+  </button>
+  {analytics && (
+  <div style={{ marginTop: 20 }}>
+
+    <h3>Interview Analytics</h3>
+
+    <p>Core Runs: {analytics.summary.core_runs}</p>
+
+    <p>Mutation Runs: {analytics.summary.mutation_runs}</p>
+
+    <p>
+      Core Passed:
+      {analytics.summary.core_passed ? " ✅" : " ❌"}
+    </p>
+
+    <p>
+      Mutation Passed:
+      {analytics.summary.mutation_passed ? " ✅" : " ❌"}
+    </p>
+
+    <p>
+  Avg edit time: {analytics.summary.time_between_runs?.avg?.toFixed(2) ?? "-"} s
+</p>
+
+  </div>
+)}
+
+</div>
       </div>
     </div>
     </div>

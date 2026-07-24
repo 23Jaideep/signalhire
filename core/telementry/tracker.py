@@ -59,13 +59,12 @@ class SessionTracker:
             "time_to_mutation_pass": (
                 self.mutation_pass_time - self.start_time
                 if self.mutation_pass_time else None
-        ),
+            ),
             "time_between_runs": compute_time_between_runs(self.events),
             "recovery": compute_recovery(self.events),
             "scope": compute_scope_violations(self.events),
         }
 
-        # ---- SCORES ----
         iteration_score = compute_iteration_efficiency(self.events, "core")
         adaptability_score = compute_adaptability(base)
         recovery_score = compute_recovery_score(base["recovery"])
@@ -73,17 +72,17 @@ class SessionTracker:
         scores = {
             "iteration": iteration_score,
             "adaptability": adaptability_score,
-            "recovery": recovery_score
+            "recovery": recovery_score,
         }
 
-    # ---- INTERPRETATION ----
         interpretation = {
             "iteration": interpret_iteration(iteration_score),
             "adaptability": interpret_adaptability(adaptability_score),
-            "recovery": interpret_recovery(recovery_score)
+            "recovery": interpret_recovery(recovery_score),
         }
 
         return {
+            **base,
             "scores": scores,
-            "interpretation": interpretation
+            "interpretation": interpretation,
         }

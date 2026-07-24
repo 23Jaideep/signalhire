@@ -1,5 +1,3 @@
-import subprocess
-import tempfile
 import os
 import sqlite3
 import json
@@ -8,18 +6,17 @@ from core.storage.db import load_session, load_events, load_sessions
 import uuid
 import time
 from core.storage.db import save_session
-from core.storage.db import save_events
-import time
 from pathlib import Path
 import yaml
 from fastapi import UploadFile, File
 import zipfile
 import shutil
-
 app = FastAPI()
-
+from core.storage.db import init_db
+init_db()
+from core.execution.test_executor import run_session
 from fastapi.middleware.cors import CORSMiddleware
-
+from core.telementry.analytics import compute_session_analytics
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -43,64 +40,38 @@ def start_session(data: dict):
 
     save_session(session)
 
-    return {"session_id": session_id}
+    return {
+        "session_id": session_id
+    }
 
 @app.post("/run_tests")
 def run_tests(data: dict):
-    code = data["code"]
-    session_id = data["session_id"]
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        file_path = os.path.join(tmpdir, "solution.py")
+    result = run_session(
+        session_id=data["session_id"],
+        task_id=data["task_id"],
+        candidate_id="test_user",
+        files=data["files"],
+        phase=data["phase"]
+    )
 
-        with open(file_path, "w") as f:
-            f.write(code)
-
-        test_code = """
-from solution import add
-
-def test_add():
-    assert add(2, 3) == 5
-    assert add(1, 1) == 2
-"""
-        test_path = os.path.join(tmpdir, "test_solution.py")
-        with open(test_path, "w") as f:
-            f.write(test_code)
-
-        result = subprocess.run(
-            ["pytest", test_path],
-            capture_output=True,
-            text=True
-        )
-
-        passed = result.returncode == 0
-
-        # ✅ LOG EVENT HERE
-        event = {
-            "session_id": session_id,
-            "timestamp": time.time(),
-            "event_type": "test_run",
-            "phase": "core",
-            "passed": passed,
-            "tests_passed": 2 if passed else 1,
-            "diff": None
-        }
-
-        save_events([event])
-
-        return {
-            "passed": passed,
-            "output": result.stdout + result.stderr
-        }
+    return result
     
 
 @app.get("/session/{session_id}")
 def get_session(session_id: str):
+
     session = load_session(session_id)
+
+    if session is None:
+        return {"error": "Session not found"}
+
     events = load_events(session_id)
 
+    analytics = compute_session_analytics(events)
+
     return {
-        "summary": session["summary"],
+        "summary": analytics,
         "events": events
     }
 
