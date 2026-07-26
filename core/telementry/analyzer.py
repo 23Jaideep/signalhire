@@ -24,22 +24,46 @@ def compute_time_between_runs(events):
 # ---- Recovery ----
 def compute_recovery(events):
     recoveries = []
+
+    previous_tests = None
+    previous_phase = None
+
     regression_start = None
+    regression_found = False
 
     for e in events:
+
         if e["event_type"] != "test_run":
             continue
 
-        if not e["passed"]:
-            if regression_start is None:
+        current_tests = e["tests_passed"]
+        current_phase = e["phase"]
+
+        # Only compare runs from the SAME phase
+        if (
+            previous_tests is not None
+            and previous_phase == current_phase
+        ):
+
+            # Regression
+            if current_tests < previous_tests:
+                regression_found = True
                 regression_start = e["timestamp"]
 
-        else:  # passed
-            if regression_start is not None:
-                recoveries.append(e["timestamp"] - regression_start)
+            # Recovery
+            elif (
+                regression_start is not None
+                and current_tests >= previous_tests
+            ):
+                recoveries.append(
+                    e["timestamp"] - regression_start
+                )
                 regression_start = None
 
-    return recoveries
+        previous_tests = current_tests
+        previous_phase = current_phase
+
+    return recoveries, regression_found
 
 
 # ---- Progress ----
@@ -127,7 +151,11 @@ def compute_composite(events, summary):
         "iteration_core": compute_iteration_efficiency(events, "core"),
         "iteration_mutation": compute_iteration_efficiency(events, "mutation"),
         "adaptability": compute_adaptability(summary),
-        "recovery": compute_recovery_score(summary.get("recovery")),
+        "recovery": (
+            compute_recovery_score(summary.get("recovery"))
+            if summary.get("regression_found")
+            else None
+        ),
     }
 
 def interpret_iteration(score):
@@ -152,10 +180,13 @@ def interpret_adaptability(score):
         return "struggled with mutation"
 
 
-def interpret_recovery(score):
+def interpret_recovery(score, regression_found):
+
+    if not regression_found:
+        return "no regressions observed"
     if score is None:
-        return "no regression observed"
-    elif score > 0.7:
-        return "quick recovery from mistakes"
-    else:
-        return "slow recovery from regressions"
+        return "insufficient recovery data"
+    if score > 0.7:
+        return "quick recovery from regressions"
+
+    return "slow recovery from regressions"

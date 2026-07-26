@@ -66,7 +66,7 @@ def compute_session_analytics(events):
     # -----------------------------
     time_between_runs = compute_time_between_runs(events)
 
-    recoveries = compute_recovery(events)
+    recoveries, regression_found = compute_recovery(events)
 
     scope = compute_scope_violations(events)
 
@@ -76,6 +76,7 @@ def compute_session_analytics(events):
         "time_to_core_pass": time_to_core_pass,
         "time_to_mutation_pass": time_to_mutation_pass,
         "recovery": recoveries,
+        "regression_found": regression_found,
     }
 
     # -----------------------------
@@ -110,7 +111,8 @@ def compute_session_analytics(events):
             scores["adaptability"]
         ),
         "recovery": interpret_recovery(
-            scores["recovery"]
+            scores["recovery"],
+            regression_found,
         ),
     }
     print("SUMMARY:", summary)
