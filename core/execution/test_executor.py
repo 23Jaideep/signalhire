@@ -13,7 +13,9 @@ from core.storage.db import (
     save_candidate,
     save_events,
     update_session,
+    load_events,
 )
+from core.telementry.analytics import compute_session_analytics
 
 def run_tests(file):
     result = subprocess.run(
@@ -117,19 +119,26 @@ def run_session(
 
         end = time.time()
 
-        summary = tracker.summary()
-        update_session(session_id, summary)
-        print("SUMMARY SAVED:", summary)
         save_candidate(candidate_id)
+
         print("EVENTS:", tracker.events)
+
         save_events(tracker.events)
 
+        events = load_events(session_id)
+
+        summary = compute_session_analytics(events)
+
+        update_session(session_id, summary)
+
+        print("SUMMARY SAVED:", summary)
+
         return {
-    "phase": "core",
-    "passed": passed,
-    "output": output,
-    "summary": summary
-}
+            "phase": "core",
+            "passed": passed,
+            "output": output,
+            "summary": summary
+        }
 
     # -------- Phase 2: Mutation --------
     if phase == "mutation":
@@ -169,19 +178,26 @@ def run_session(
             "diff": diff
         })
         end = time.time()
-        summary = tracker.summary()
-        update_session(session_id, summary)
-        print("SUMMARY SAVED:", summary)
         save_candidate(candidate_id)
+
         print("EVENTS:", tracker.events)
+
         save_events(tracker.events)
 
+        events = load_events(session_id)
+
+        summary = compute_session_analytics(events)
+
+        update_session(session_id, summary)
+
+        print("SUMMARY SAVED:", summary)
+
         return {
-    "phase": "mutation",
-    "passed": passed,
-    "output": mutation_output,
-    "summary": summary
-}
+            "phase": "mutation",
+            "passed": passed,
+            "output": mutation_output,
+            "summary": summary
+        }
 
 #     end = time.time()
 

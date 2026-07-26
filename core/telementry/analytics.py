@@ -113,6 +113,9 @@ def compute_session_analytics(events):
             scores["recovery"]
         ),
     }
+    print("SUMMARY:", summary)
+    print("SCORES:", scores)
+    print("INTERPRETATION:", interpretation)
 
     # -----------------------------
     # Final Response
